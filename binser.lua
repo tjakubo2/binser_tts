@@ -21,13 +21,35 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ]]
 
+do
+
+local function tryIsObject(ref)
+    return ref.guid
+end
+local function tryIsPlayer(ref)
+    return ref.steam_id
+end
+
+-- TTS' Moonsharp dies if we reference old type from the new type function, so...
+local __type = type
+local function type(arg)
+    if __type(arg) == 'userdata' then
+        if pcall(tryIsObject, arg) then
+            return 'ref_object'
+        elseif pcall(tryIsPlayer, arg) then
+            return 'ref_player'
+        end
+    else
+        return __type(arg)
+    end
+end
+
 local assert = assert
 local error = error
 local select = select
 local pairs = pairs
 local getmetatable = getmetatable
 local setmetatable = setmetatable
-local type = type
 local loadstring = loadstring or load
 local concat = table.concat
 local char = string.char
@@ -218,6 +240,10 @@ local function newbinser()
     -- INT64 = 212
     -- TABLE WITH META = 213
 
+    -- TTS extensions
+    -- OBJECT REF = 214
+    -- PLAYER REF = 215
+
     local mts = {}
     local ids = {}
     local serializers = {}
@@ -225,6 +251,22 @@ local function newbinser()
     local resources = {}
     local resources_by_name = {}
     local types = {}
+
+    types.ref_object = function(x, visited, accum)
+        if visited[x] then
+            accum[#accum + 1] = "\208"
+            accum[#accum + 1] = number_to_str(visited[x])
+        else
+            visited[x] = visited[NEXT]
+            visited[NEXT] =  visited[NEXT] + 1
+            accum[#accum + 1] = "\214"
+            accum[#accum + 1] = x.getGUID()
+        end
+    end
+
+    types.ref_player = function(x, visited, accum)
+        error('ref_player - NYI')
+    end
 
     types["nil"] = function(x, visited, accum)
         accum[#accum + 1] = "\202"
@@ -446,6 +488,11 @@ local function newbinser()
                 error(("No resources found for name '%s'"):format(tostring(resname)))
             end
             return res, nextindex
+        elseif t == 214 then
+            local guid = sub(str, index + 1, index + 6)
+            local obj = getObjectFromGUID(guid)
+            visited[#visited + 1] = obj
+            return obj, index + 7
         else
             error("Could not deserialize type byte " .. t .. ".")
         end
@@ -722,7 +769,7 @@ local function newbinser()
     end
 
     return {
-        VERSION = "0.0-8",
+        VERSION = "0.0-8__tts0.0-1",
         -- aliases
         s = serialize,
         d = deserialize,
@@ -747,4 +794,6 @@ local function newbinser()
     }
 end
 
-return newbinser()
+binser = newbinser()
+
+end
