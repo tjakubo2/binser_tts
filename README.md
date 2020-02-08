@@ -1,49 +1,25 @@
-# binser_tts - (Slightly Customizable) Lua Serializer for Tabletop Simulator Scripting
+# binser - Customizable Lua Serializer
 
-This is a repurpose fork of [binser by bakpakin](https://github.com/bakpakin/binser)
-made specifically for ease of use with (very specific) environment of Tabletop
-Simulator scripting.
+[![Build Status](https://travis-ci.org/bakpakin/binser.svg?branch=master)](https://travis-ci.org/bakpakin/binser)
 
-## Why binser_tts (and not e.g. built-in JSON)
-* Fast encode/decode, see [Benchmark]
-* No data structure constraints like with the JSON (maps/arrays only)
-* Handles:
-** All value types
-** Table references, including cycles
-** Vector/Color instances
-** Object/Player userdata instances
-
-## Differences vs binser
-* Lua 5.3 specifics removed (TTS Moonsharp only emulates subset of 5.2)
-* Function handling removed (no loadstring available)
-* File handling removed (no io available)
-* Resource/class registering replaced with simple reference registration
-* Some style changes for my own readablility sake (sorry)
+There already exists a number of serializers for Lua, each with their own uses,
+limitations, and quirks. binser is yet another robust, pure Lua serializer that
+specializes in serializing Lua data with lots of userdata and custom classes
+and types. binser is a binary serializer and does not serialize data into
+human readable representation or use the Lua parser to read expressions. This
+makes it safe and moderately fast, especially on LuaJIT. binser also handles
+cycles, self-references, and metatables.
 
 ## How to Use
 
 ### Example
 ```lua
--- you can include of paste the source anywhere in your script
-#include binser_tts
+local binser = require "binser"
 
-function onSave()
-    local data = {
-        someData = 42,
-        -- objects refs are saved/loaded by GUID automatically
-        obj = getObjectFromGUID('abcdef'),
-        -- player refs are saved/lodade by color
-        winner = Player.Green,
-        -- Vector instances are saved with data and have their metatables restored when loaded
-        targetPos = getObjectFromGUID('abcdef').getPosition()
-    }
-    return binser_tts.serialize(data)
-end
+local mydata = binser.serialize(45, {4, 8, 12, 16}, "Hello, World!")
 
-function onLoad(serializedData)
-    local data = binser_tts.deserialize(serializedData)
-    log(data) -- see the output in Console tab
-end
+print(binser.deserializeN(mydata, 3))
+-- 45	table: 0x7fa60054bdb0	Hello, World!
 ```
 
 ### Serializing and Deserializing
